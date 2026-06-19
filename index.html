@@ -430,7 +430,7 @@ footer p{font-size:11px;color:var(--text-xs);margin-top:3px}
       <div class="hist-stat"><div class="hist-stat-val" id="hsPico">1.408 (2018)</div><div class="hist-stat-lbl">Pico Histórico</div></div>
     </div>
     <div style="height:145px"><canvas id="histChart" style="box-sizing: border-box; display: block; height: 145px; width: 775px;" width="775" height="145"></canvas></div>
-    <div class="insight blue"><strong>💡 Insight:</strong> 16 anos de atuação (2009–2025). Pico em 2018 (1.408 alunos). Retomada em 2025 com 1.293 alunos. Clique nos nós para detalhes.</div>
+    <div class="insight blue"><strong>💡 Insight:</strong> 17 anos de atuação (2009–2025). Pico em 2018 (1.408 alunos). Retomada em 2025 com 1.293 alunos. <span style="color:#B8780E;font-weight:600">▲ 2026: Q1 parcial · 317 alunos · 4 escolas.</span> Clique nos nós para detalhes.</div>
   </div>
 </div>
 
@@ -823,6 +823,15 @@ const DEFAULT={
       "mun": 1001,
       "part": 62,
       "esc": 12
+    },
+    {
+      "ano": "2026",
+      "tot": 317,
+      "est": 107,
+      "mun": 210,
+      "part": 0,
+      "esc": 4,
+      "parcial": true
     }
   ]
 };
@@ -1105,12 +1114,13 @@ function showClassifDetails(label,data){
   <div class="md-grid">${esc.map(s=>{const sat=getSatisf(s.name);return mdItem('🏫',shortName(s.name),sat?sat.global+',0/5,0':'Pendente',sat?'alto':'pendente');}).join('')}</div>`);
 }
 function showHistDetails(h){
-  const mx=D.historico.reduce((a,b)=>b.tot>a.tot?b:a);
+  const mx=D.historico.filter(x=>x.ano!=='2026').reduce((a,b)=>b.tot>a.tot?b:a,D.historico[0]);
   const prev=D.historico.find(x=>x.ano===String(parseInt(h.ano)-1));
   const diff=prev?h.tot-prev.tot:0;
-  openModal(`<div class="md-header"><div class="md-title-row"><div class="md-icon-wrap">📅</div><div><div class="md-title">Ano ${h.ano}</div><div class="md-sub">${h.esc} escola${h.esc!==1?'s':''} atendida${h.esc!==1?'s':''}</div></div></div></div>
+  const parcialBanner=h.parcial?`<div style="background:#fdf3e3;border:1px solid #FCD34D;border-left:4px solid #B8780E;padding:10px 14px;margin:0 0 14px;border-radius:0 8px 8px 0;font-size:12px;color:#92400E;line-height:1.6">⚠️ <strong>Dados parciais — 1º Trimestre 2026</strong><br>4 escolas atendidas · Q2, Q3 e Q4 pendentes de inserção<br><span style="font-size:11px">Rui Barbosa 110 al. · Irmã Edelmira 43 al. · João Valente 57 al. · Gonçalves Dias 107 al.</span></div>`:'';
+  openModal(`<div class="md-header"><div class="md-title-row"><div class="md-icon-wrap">📅</div><div><div class="md-title">Ano ${h.ano}${h.parcial?' <span style="font-size:13px;font-family:Inter,sans-serif;color:#B8780E;font-weight:600">· Q1 Parcial</span>':''}</div><div class="md-sub">${h.esc} escola${h.esc!==1?'s':''} atendida${h.esc!==1?'s':''}</div></div></div></div>${parcialBanner}
   <div class="md-grid">
-    ${mdItem('👩‍🎓','Total de Alunos',h.tot.toLocaleString('pt-BR'))}
+    ${mdItem('👩‍🎓','Total de Alunos',h.tot.toLocaleString('pt-BR')+(h.parcial?' (Q1)':''))}
     ${mdItem('🏫','Escolas',h.esc)}
     ${mdItem('📚','Alunos Estaduais',h.est.toLocaleString('pt-BR'))}
     ${mdItem('🏛️','Alunos Municipais',(h.mun||0).toLocaleString('pt-BR'))}
@@ -1705,8 +1715,12 @@ function renderHist(){
     return;
   }
 
-  const tot=D.historico.reduce((a,b)=>a+b.tot,0);
-  const pico=D.historico.reduce((a,b)=>b.tot>a.tot?b:a,D.historico[0]);
+  // Garantir dados corretos de 2026 Q1 (sobrescreve parsed do xlsx se necessário)
+  const idx2026=D.historico.findIndex(h=>h.ano==='2026');
+  if(idx2026>=0){D.historico[idx2026]={ano:'2026',tot:317,est:107,mun:210,part:0,esc:4,parcial:true};}
+  // KPI exclui 2026 (dados parciais) — label mantida "Alunos (2009–2025)"
+  const tot=D.historico.filter(h=>h.ano!=='2026').reduce((a,b)=>a+b.tot,0);
+  const pico=D.historico.filter(h=>h.ano!=='2026').reduce((a,b)=>b.tot>a.tot?b:a,D.historico[0]);
   sTxt('hsTot',tot.toLocaleString('pt-BR'));
   sTxt('hsPico',`${pico.tot.toLocaleString('pt-BR')} (${pico.ano})`);
   CH.hist=new Chart(canvas,{
@@ -1714,7 +1728,7 @@ function renderHist(){
     data:{
       labels:D.historico.map(h=>h.ano),
       datasets:[
-        {label:'Total',data:D.historico.map(h=>h.tot),borderColor:'#1D6A3A',backgroundColor:'rgba(29,106,58,.07)',borderWidth:2.5,pointBackgroundColor:'#1D6A3A',pointBorderColor:'#fff',pointRadius:5,pointHoverRadius:9,fill:true,tension:0.35},
+        {label:'Total',data:D.historico.map(h=>h.tot),borderColor:'#1D6A3A',backgroundColor:'rgba(29,106,58,.07)',borderWidth:2.5,pointBackgroundColor:D.historico.map(h=>h.parcial?'#B8780E':'#1D6A3A'),pointBorderColor:D.historico.map(h=>h.parcial?'#B8780E':'#fff'),pointRadius:D.historico.map(h=>h.parcial?7:5),pointHoverRadius:9,pointStyle:D.historico.map(h=>h.parcial?'triangle':'circle'),fill:true,tension:0.35},
         {label:'Alunos Estaduais',data:D.historico.map(h=>h.est),borderColor:'#50C878',backgroundColor:'transparent',borderWidth:1.5,pointRadius:3,pointHoverRadius:7,tension:0.35,borderDash:[4,3]},
         {label:'Alunos Municipais',data:D.historico.map(h=>h.mun),borderColor:'#708238',backgroundColor:'transparent',borderWidth:1.5,pointRadius:3,pointHoverRadius:7,tension:0.35,borderDash:[4,3]},
         {label:'Alunos Rede Particular',data:D.historico.map(h=>h.part||0),borderColor:'#1D4ED8',backgroundColor:'transparent',borderWidth:1.5,pointRadius:3,pointHoverRadius:7,tension:0.35,borderDash:[2,3]},
